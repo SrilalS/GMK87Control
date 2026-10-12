@@ -1,0 +1,91 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - name: Test
+        run: dotnet test --project tests/Gmk87.Core.Tests/Gmk87.Core.Tests.csproj -c Release
+
+  build:
+    needs: test
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        platform: [x64, arm64]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Work out version
+        id: version
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF -like 'refs/tags/v*') {
+            $v = $env:GITHUB_REF_NAME.Substring(1)
+          } else {
+            $v = "0.0.0-ci.$env:GITHUB_RUN_NUMBER"
+          }
+          "value=$v" >> $env:GITHUB_OUTPUT
+
+      # dotnet publish leaves out the app's .pri and .xbf files for unpackaged WinUI, so the
+      # published exe crashes on start. A self-contained build output has everything it needs.
+      - name: Build
+        shell: pwsh
+        run: >
+          dotnet build src/Gmk87.App/Gmk87.App.csproj
+          -c Release
+          -p:Platform=${{ matrix.platform }}
+          -p:RuntimeIdentifier=win-${{ matrix.platform }}
+          -p:SelfContained=true
+          -p:Version=${{ steps.version.outputs.value }}
+          -o out
+
+      - name: Package
+        shell: pwsh
+        run: |
+          Get-ChildItem out -Recurse -Filter *.pdb | Remove-Item
+          Copy-Item LICENSE, README.md out
+          Compress-Archive -Path out/* -DestinationPath "GMK87Control-${{ steps.version.outputs.value }}-win-${{ matrix.platform }}.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GMK87Control-win-${{ matrix.platform }}
+          path: GMK87Control-*.zip
+          if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release create "$GITHUB_REF_NAME" dist/*.zip
+          --repo "$GITHUB_REPOSITORY"
+          --title "GMK87 Control $GITHUB_REF_NAME"
+          --generate-notes

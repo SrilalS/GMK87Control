@@ -25,6 +25,14 @@ Detected automatically from the VIA protocol version the keyboard reports.
 
 Keymap backups record the protocol and won't restore across numberings.
 
+## Download
+
+Grab the zip for your machine (`win-x64` for most PCs, `win-arm64` for ARM laptops) from
+[Releases](https://github.com/SrilalS/GMK87Control/releases/latest), extract it anywhere and run `GMK87Control.exe`.
+No install and no .NET runtime needed. Requires Windows 10 1809 or later.
+
+Builds of the latest `main` are attached to each run on the [Actions](https://github.com/SrilalS/GMK87Control/actions) tab.
+
 ## Build and run
 
 Requires Windows 10 1809+ and the .NET 10 SDK.
