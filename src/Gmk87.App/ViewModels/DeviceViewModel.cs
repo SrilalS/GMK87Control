@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Gmk87.Core.Hid;
+using Gmk87.Core.Model;
 using Gmk87.Core.Protocol;
 
 namespace Gmk87.App.ViewModels;
@@ -62,7 +63,13 @@ public sealed partial class DeviceViewModel : ObservableObject
             {
                 var (protocol, layers) = await service.WithViaAsync(async via =>
                     (await via.GetProtocolVersionAsync(), await via.GetLayerCountAsync()));
-                ViaProtocol = $"{protocol} ({(protocol >= 11 ? "VIA V3, modern keycodes" : "VIA V2, legacy keycodes")})";
+                ViaProtocol = protocol switch
+                {
+                    KeyboardConfig.ViaV3Protocol => $"{protocol} (VIA V3, modern keycodes)",
+                    KeyboardConfig.ViaV2Protocol => $"{protocol} (VIA V2, legacy keycodes)",
+                    // V0112 reports settings byte 0x31; 0xFF there comes from an earlier 48-byte settings write.
+                    _ => $"{protocol} (invalid: the next lighting write repairs it to 11)",
+                };
                 LayerCount = layers.ToString();
             }
             catch (Exception ex)

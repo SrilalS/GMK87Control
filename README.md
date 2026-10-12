@@ -56,8 +56,10 @@ dotnet test
 ## Things to know
 
 - Close VIA and the vendor app first. They share the same HID interfaces and can steal each other's replies.
-- Neither firmware uses VIA's colour value; colour, the rainbow flag and direction go through the vendor `0xFF1C` block.
+- Colour, the rainbow flag and direction go through the vendor `0xFF1C` block. (V0112 also accepts a VIA hue, but it's hidden while rainbow is on.)
 - Reading the `0xFF1C` settings block sends INIT/COMMIT, exactly as the vendor app does.
+- On V0112 the settings block is 64 bytes, and byte `0x31` is the VIA protocol the keyboard reports. Tools that write only 48 bytes (older versions of this app, gmk87-node) leave it at `0xFF`, which turns off VIA encoder support. This app writes all 64 bytes and resets a damaged value to 11 on the next lighting or screen write.
+- Don't use VIA's "load saved layout" on V0112: its bulk keymap command (`0x13`) is really a single-key write in this firmware.
 - Screen uploads always rewrite both image slots; images can't be read back.
 - The Fn key is `0x5F10` on both firmwares. On V0112 the `MO(1)` code (`0x5221`) does not work as Fn.
 - The lighting preview is an approximation; the firmware's real animations have not been decoded.

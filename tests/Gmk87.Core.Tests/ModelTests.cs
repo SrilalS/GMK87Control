@@ -22,6 +22,33 @@ public class KeyboardConfigTests
         Assert.Equal(17, c.Slot2Frames);
     }
 
+    [Theory]
+    [InlineData(0xFF, true, 11)]
+    [InlineData(0x00, true, 11)]
+    [InlineData(9, false, 9)]
+    [InlineData(11, false, 11)]
+    public void RepairProtocolSelector_only_touches_invalid_values(byte selector, bool repaired, byte expected)
+    {
+        var raw = new byte[KeyboardConfig.ExtendedLength];
+        raw[0x31] = selector;
+        var c = new KeyboardConfig(raw);
+
+        Assert.Equal(repaired, c.RepairProtocolSelector());
+        Assert.Equal(expected, c.ProtocolSelector);
+    }
+
+    [Fact]
+    public void A_48_byte_block_has_no_protocol_selector()
+    {
+        var c = new KeyboardConfig(new byte[48]);
+        Assert.Null(c.ProtocolSelector);
+        Assert.True(c.HasValidProtocolSelector);
+        Assert.False(c.RepairProtocolSelector());
+    }
+
+    [Fact]
+    public void Rejects_other_lengths() => Assert.Throws<ArgumentException>(() => new KeyboardConfig(new byte[50]));
+
     [Fact]
     public void SetClock_writes_bcd_and_sunday_zero()
     {

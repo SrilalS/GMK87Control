@@ -11,6 +11,7 @@ public sealed class ConfigClient(IHidChannel channel) : IDisposable
 {
     public const byte CmdInit = 0x01;
     public const byte CmdCommit = 0x02;
+    /// <summary>Called PREP_READ by gmk87-node; V0112 code shows it reads the second 64-byte block (flash 0x82000).</summary>
     public const byte CmdPrepareRead = 0x03;
     public const byte CmdReadConfig = 0x05;
     public const byte CmdWriteConfig = 0x06;
@@ -20,10 +21,11 @@ public sealed class ConfigClient(IHidChannel channel) : IDisposable
     public const int MaxPayload = 56;
 
     private static readonly TimeSpan ReplyTimeout = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan ExtendedReplyTimeout = TimeSpan.FromSeconds(1);
 
     /// <summary>
-    /// Reads the 48-byte settings block. Note: the read sequence itself sends INIT and COMMIT,
-    /// exactly as the vendor app does.
+    /// Reads the settings block: 64 bytes when the firmware answers for positions 48-63 (V0112), else 48.
+    /// Note: the read sequence itself sends INIT and COMMIT, exactly as the vendor app does.
     /// </summary>
     public async Task<KeyboardConfig> ReadConfigAsync(CancellationToken ct = default)
     {
@@ -34,22 +36,44 @@ public sealed class ConfigClient(IHidChannel channel) : IDisposable
         await TransactAsync(CmdPrepareRead, new byte[1], 36, ct).ConfigureAwait(false);
         await TransactAsync(CmdCommit, [], 0, ct).ConfigureAwait(false);
 
-        var raw = new byte[KeyboardConfig.Length];
-        for (var i = 0; i < 12; i++)
+        var raw = new byte[KeyboardConfig.ExtendedLength];
+        for (var pos = 0; pos < KeyboardConfig.Length; pos += 4)
         {
-            var chunk = await TransactAsync(CmdReadConfig, new byte[4], i * 4, ct).ConfigureAwait(false);
-            Array.Copy(chunk, 0, raw, i * 4, 4);
+            var chunk = await TransactAsync(CmdReadConfig, new byte[4], pos, ct).ConfigureAwait(false);
+            Array.Copy(chunk, 0, raw, pos, 4);
+        }
+
+        try
+        {
+            for (var pos = KeyboardConfig.Length; pos < KeyboardConfig.ExtendedLength; pos += 4)
+            {
+                var chunk = await TransactAsync(CmdReadConfig, new byte[4], pos, ct, ExtendedReplyTimeout).ConfigureAwait(false);
+                Array.Copy(chunk, 0, raw, pos, 4);
+            }
+        }
+        catch (Gmk87ProtocolException)
+        {
+            return new KeyboardConfig(raw.AsSpan(0, KeyboardConfig.Length));
         }
 
         return new KeyboardConfig(raw);
     }
 
-    /// <summary>WRITES the 48-byte settings block (lighting, logo LED, clock, display selection).</summary>
+    /// <summary>
+    /// WRITES the settings block (lighting, logo LED, clock, display selection). The firmware starts a fresh,
+    /// erased flash slot at position 0, so every byte not written ends up 0xFF: a 64-byte block is written in
+    /// full (two packets) to keep bytes 48-63, and a damaged VIA protocol selector is reset to V3 on the way.
+    /// </summary>
     public async Task WriteConfigAsync(KeyboardConfig config, CancellationToken ct = default)
     {
+        var block = config.Clone();
+        block.RepairProtocolSelector();
+        var raw = block.ToArray();
+
         await channel.DrainAsync(ct).ConfigureAwait(false);
         await TransactAsync(CmdInit, [], 0, ct).ConfigureAwait(false);
-        await TransactAsync(CmdWriteConfig, config.ToArray(), 0, ct).ConfigureAwait(false);
+        for (var pos = 0; pos < raw.Length; pos += MaxPayload)
+            await TransactAsync(CmdWriteConfig, raw.AsSpan(pos, Math.Min(MaxPayload, raw.Length - pos)).ToArray(), pos, ct).ConfigureAwait(false);
         await TransactAsync(CmdCommit, [], 0, ct).ConfigureAwait(false);
     }
 
@@ -99,7 +123,7 @@ public sealed class ConfigClient(IHidChannel channel) : IDisposable
     }
 
     /// <summary>Sends one command and waits for the reply that echoes it; returns reply bytes 4 onward.</summary>
-    internal async Task<byte[]> TransactAsync(byte command, byte[] data, int position, CancellationToken ct)
+    internal async Task<byte[]> TransactAsync(byte command, byte[] data, int position, CancellationToken ct, TimeSpan? timeout = null)
     {
         // The Python reference waits before COMMIT to give the keyboard time to finish the previous step.
         if (command == CmdCommit)
@@ -107,7 +131,7 @@ public sealed class ConfigClient(IHidChannel channel) : IDisposable
 
         await channel.WriteAsync(BuildPacket(command, data, position, channel.OutputReportLength), ct).ConfigureAwait(false);
 
-        var deadline = DateTime.UtcNow + ReplyTimeout;
+        var deadline = DateTime.UtcNow + (timeout ?? ReplyTimeout);
         while (DateTime.UtcNow < deadline)
         {
             var reply = await channel.ReadAsync(deadline - DateTime.UtcNow, ct).ConfigureAwait(false);

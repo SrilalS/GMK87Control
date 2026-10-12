@@ -1,13 +1,22 @@
 namespace Gmk87.Core.Model;
 
 /// <summary>
-/// The 48-byte settings block behind the 0xFF1C interface. The firmware keeps the same layout in RAM
-/// at gp+0xE0, which is how the field meanings and ranges below were confirmed.
-/// Unknown bytes are carried through untouched on every write.
+/// The settings block behind the 0xFF1C interface. V0112 stores 64 bytes (RAM 0x80520, flash 0x83000);
+/// the first 48 are the documented lighting/screen fields and the last 16 hold firmware state, including
+/// the VIA protocol selector at 0x31. A 48-byte block (all that older tools and V0104 reads use) is still
+/// accepted. Unknown bytes are carried through untouched on every write.
 /// </summary>
 public sealed class KeyboardConfig
 {
+    /// <summary>The documented part of the block, and its full size on V0104.</summary>
     public const int Length = 48;
+
+    /// <summary>The full block on V0112.</summary>
+    public const int ExtendedLength = 64;
+
+    /// <summary>VIA protocol numbers the V0112 firmware switches between (0x31); anything else disables parts of VIA.</summary>
+    public const byte ViaV2Protocol = 9;
+    public const byte ViaV3Protocol = 11;
 
     private const int EffectOffset = 1;
     private const int BrightnessOffset = 2;
@@ -27,6 +36,7 @@ public sealed class KeyboardConfig
     private const int ClockOffset = 35;
     private const int FrameDelayOffset = 43;
     private const int Slot2FramesOffset = 46;
+    private const int ProtocolSelectorOffset = 0x31;
 
     public const int MaxEffect = 18;
     public const int MaxBrightness = 9;
@@ -40,14 +50,33 @@ public sealed class KeyboardConfig
 
     public KeyboardConfig(ReadOnlySpan<byte> raw)
     {
-        if (raw.Length != Length)
-            throw new ArgumentException($"Config block must be {Length} bytes.", nameof(raw));
+        if (raw.Length is not (Length or ExtendedLength))
+            throw new ArgumentException($"Config block must be {Length} or {ExtendedLength} bytes.", nameof(raw));
         _raw = raw.ToArray();
     }
 
     public byte[] ToArray() => (byte[])_raw.Clone();
 
     public KeyboardConfig Clone() => new(_raw);
+
+    public bool IsExtended => _raw.Length == ExtendedLength;
+
+    /// <summary>
+    /// The VIA protocol V0112 reports (byte 0x31), or null for a 48-byte block. Writing only 48 bytes with
+    /// command 0x06 leaves it at 0xFF, which turns off VIA encoder support.
+    /// </summary>
+    public byte? ProtocolSelector => IsExtended ? _raw[ProtocolSelectorOffset] : null;
+
+    public bool HasValidProtocolSelector => ProtocolSelector is null or ViaV2Protocol or ViaV3Protocol;
+
+    /// <summary>Resets a damaged protocol selector to VIA V3, the V0112 default. Returns true if it changed.</summary>
+    public bool RepairProtocolSelector()
+    {
+        if (HasValidProtocolSelector)
+            return false;
+        _raw[ProtocolSelectorOffset] = ViaV3Protocol;
+        return true;
+    }
 
     public int Effect { get => _raw[EffectOffset]; set => _raw[EffectOffset] = Clamp(value, MaxEffect); }
     public int Brightness { get => _raw[BrightnessOffset]; set => _raw[BrightnessOffset] = Clamp(value, MaxBrightness); }

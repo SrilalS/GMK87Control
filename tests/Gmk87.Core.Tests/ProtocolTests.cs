@@ -9,6 +9,24 @@ public class ConfigProtocolTests
     internal static readonly byte[] SavedConfig = Convert.FromHexString(
         "000509010100ff00002d00000000000000000000ff0000ff000000000309020000004951451500060926006400011100");
 
+    // Bytes 48-63 as read from V0112 on 2026-10-12 after an earlier 48-byte write: protocol selector 0x31 = 0xFF.
+    internal static readonly byte[] DamagedTail = Enumerable.Repeat((byte)0xFF, 16).ToArray();
+
+    private static FakeChannel ConfigDevice(byte[] block, bool answersExtended = true) => new(8, 64, request =>
+    {
+        var reply = new byte[8];
+        reply[0] = 0x04;
+        reply[3] = request[3];
+        if (request[3] == ConfigClient.CmdReadConfig)
+        {
+            var pos = request[5];
+            if (pos >= block.Length || (pos >= KeyboardConfig.Length && !answersExtended))
+                return [0x04, 0, 0, 0x99, 0, 0, 0, 0]; // never echoes, so the read times out
+            Array.Copy(block, pos, reply, 4, 4);
+        }
+        return reply;
+    });
+
     [Fact]
     public void BuildPacket_lays_out_header_and_checksum_like_the_python_reference()
     {
@@ -39,41 +57,60 @@ public class ConfigProtocolTests
         Assert.Throws<ArgumentOutOfRangeException>(() => ConfigClient.BuildPacket(0x21, new byte[57], 0));
 
     [Fact]
-    public async Task ReadConfig_sends_the_documented_sequence_and_assembles_48_bytes()
+    public async Task ReadConfig_sends_the_documented_sequence_and_assembles_64_bytes()
     {
-        var channel = new FakeChannel(8, 64, request =>
-        {
-            var reply = new byte[8];
-            reply[0] = 0x04;
-            reply[3] = request[3];
-            if (request[3] == ConfigClient.CmdReadConfig)
-            {
-                var pos = request[5];
-                Array.Copy(SavedConfig, pos, reply, 4, 4);
-            }
-            return reply;
-        });
+        var channel = ConfigDevice([.. SavedConfig, .. DamagedTail]);
 
         var config = await new ConfigClient(channel).ReadConfigAsync(TestContext.Current.CancellationToken);
 
         var commands = channel.Writes.Select(w => w[3]).ToArray();
-        byte[] expected = [0x01, .. Enumerable.Repeat((byte)0x03, 10), 0x02, .. Enumerable.Repeat((byte)0x05, 12)];
+        byte[] expected = [0x01, .. Enumerable.Repeat((byte)0x03, 10), 0x02, .. Enumerable.Repeat((byte)0x05, 16)];
         Assert.Equal(expected, commands);
+        Assert.Equal([.. SavedConfig, .. DamagedTail], config.ToArray());
+        Assert.Equal((byte)0xFF, config.ProtocolSelector);
+    }
+
+    [Fact]
+    public async Task ReadConfig_falls_back_to_48_bytes_when_the_tail_is_not_answered()
+    {
+        var config = await new ConfigClient(ConfigDevice(SavedConfig, answersExtended: false))
+            .ReadConfigAsync(TestContext.Current.CancellationToken);
+
+        Assert.False(config.IsExtended);
+        Assert.Null(config.ProtocolSelector);
         Assert.Equal(SavedConfig, config.ToArray());
     }
 
     [Fact]
-    public async Task WriteConfig_sends_init_payload_commit()
+    public async Task WriteConfig_sends_a_48_byte_block_in_one_packet()
     {
         var channel = new FakeChannel(8, 64, request => [0x04, 0, 0, request[3], 0, 0, 0, 0]);
-        var config = new KeyboardConfig(SavedConfig);
 
-        await new ConfigClient(channel).WriteConfigAsync(config, TestContext.Current.CancellationToken);
+        await new ConfigClient(channel).WriteConfigAsync(new KeyboardConfig(SavedConfig), TestContext.Current.CancellationToken);
 
         Assert.Equal(new byte[] { 0x01, 0x06, 0x02 }, channel.Writes.Select(w => w[3]).ToArray());
         var write = channel.Writes[1];
         Assert.Equal(48, write[4]);
         Assert.Equal(SavedConfig, write[8..56]);
+    }
+
+    [Fact]
+    public async Task WriteConfig_writes_all_64_bytes_and_repairs_the_protocol_selector()
+    {
+        var channel = new FakeChannel(8, 64, request => [0x04, 0, 0, request[3], 0, 0, 0, 0]);
+        var config = new KeyboardConfig([.. SavedConfig, .. DamagedTail]);
+
+        await new ConfigClient(channel).WriteConfigAsync(config, TestContext.Current.CancellationToken);
+
+        Assert.Equal(new byte[] { 0x01, 0x06, 0x06, 0x02 }, channel.Writes.Select(w => w[3]).ToArray());
+        var (first, second) = (channel.Writes[1], channel.Writes[2]);
+        Assert.Equal((56, 0), (first[4], first[5]));
+        Assert.Equal((8, 56), (second[4], second[5]));
+        byte[] written = [.. first[8..64], .. second[8..16]];
+        Assert.Equal(SavedConfig, written[..48]);
+        Assert.Equal(KeyboardConfig.ViaV3Protocol, written[0x31]);
+        Assert.Equal(0xFF, written[0x30]); // other tail bytes are kept as read
+        Assert.Equal((byte)0xFF, config.ProtocolSelector); // the caller's copy is not modified
     }
 
     [Fact]

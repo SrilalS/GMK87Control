@@ -43,7 +43,10 @@ public sealed class KeycodeSet
         "Logo LED mode", "Logo LED colour", "Screen page", "Key scan delay", "Screen power", "USER12", "USER13",
     ]);
 
-    /// <summary>VIA protocol 11 / firmware V0112. Vendor order read from the migrated live keymap.</summary>
+    /// <summary>
+    /// VIA protocol 11 / firmware V0112. Vendor order read from the migrated live keymap. The firmware maps
+    /// 0x7F00-0x7F0C onto its action table, so Vendor 11 and 12 exist too (purpose not yet known).
+    /// </summary>
     public static KeycodeSet Modern { get; } = new("Modern (VIA protocol 11)", new Ranges
     {
         ModTap = (0x2000, 0x3FFF), LayerTap = (0x4000, 0x4FFF), LayerMod = (0x5000, 0x51FF),
@@ -52,7 +55,7 @@ public sealed class KeycodeSet
         Rgb = 0x7820, Reset = 0x7C00, Fn1 = 0x7700, Fn2 = 0x7701, Macro = 0x7702, Custom = 0x7F00, MouseBase = 0xCD,
     }, [
         "2.4G mode", "BT 1", "BT 2", "BT 3", "Lock Win key", "Logo LED mode", "Logo LED colour",
-        "Screen page", "Key scan delay", "Screen power", "Vendor 10",
+        "Screen page", "Key scan delay", "Screen power", "Vendor 10", "Vendor 11", "Vendor 12",
     ]);
 
     /// <summary>Protocol 11 and above use the modern numbering; anything older uses legacy.</summary>
