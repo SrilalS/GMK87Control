@@ -154,7 +154,7 @@ public sealed partial class LightingViewModel : ObservableObject
                     // Bytes 1-3 mirror what VIA just set; keep them in step so this write doesn't undo it.
                     config.Effect = desired.Effect;
                     config.Brightness = desired.Brightness;
-                    config.Speed = desired.Speed;
+                    config.SpeedLevel = desired.Speed;
                     ApplyColorAndDirection(config);
                     await App.Keyboard.WriteConfigAsync(config);
                 }
@@ -202,7 +202,7 @@ public sealed partial class LightingViewModel : ObservableObject
         {
             config.Effect = SelectedEffect.Id;
             config.Brightness = (int)Brightness;
-            config.Speed = (int)Speed;
+            config.SpeedLevel = (int)Speed;
             ApplyColorAndDirection(config);
         }
         config.LogoMode = LogoMode;
@@ -239,7 +239,7 @@ public sealed partial class LightingViewModel : ObservableObject
         {
             SelectedEffect = Effects.FirstOrDefault(e => e.Id == c.Effect) ?? Effects[0];
             Brightness = c.Brightness;
-            Speed = c.Speed;
+            Speed = c.SpeedLevel;
         }
         Reverse = c.ReverseDirection;
         Rainbow = c.Rainbow;

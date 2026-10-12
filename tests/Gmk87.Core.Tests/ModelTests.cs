@@ -37,6 +37,17 @@ public class KeyboardConfigTests
         Assert.Equal(expected, c.ProtocolSelector);
     }
 
+    [Theory]
+    [InlineData(0, 4)]
+    [InlineData(1, 3)]
+    [InlineData(4, 0)]
+    public void SpeedLevel_is_the_inverse_of_the_raw_byte_like_the_V0112_VIA_handler(int level, int raw)
+    {
+        var c = new KeyboardConfig(new byte[48]) { SpeedLevel = level };
+        Assert.Equal(raw, c.Speed);
+        Assert.Equal(level, c.SpeedLevel);
+    }
+
     [Fact]
     public void A_48_byte_block_has_no_protocol_selector()
     {

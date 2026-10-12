@@ -80,7 +80,11 @@ public sealed class KeyboardConfig
 
     public int Effect { get => _raw[EffectOffset]; set => _raw[EffectOffset] = Clamp(value, MaxEffect); }
     public int Brightness { get => _raw[BrightnessOffset]; set => _raw[BrightnessOffset] = Clamp(value, MaxBrightness); }
+    /// <summary>Raw speed byte: 0 is the FASTEST. V0112's VIA handler stores 4 - value here.</summary>
     public int Speed { get => _raw[SpeedOffset]; set => _raw[SpeedOffset] = Clamp(value, MaxSpeed); }
+
+    /// <summary>Speed as VIA and the UI show it: 0 slowest, <see cref="MaxSpeed"/> fastest.</summary>
+    public int SpeedLevel { get => MaxSpeed - Math.Min(Speed, MaxSpeed); set => Speed = MaxSpeed - Math.Clamp(value, 0, MaxSpeed); }
 
     /// <summary>Animation direction; gmk87-node calls 0 left-to-right and 1 right-to-left.</summary>
     public bool ReverseDirection { get => _raw[DirectionOffset] != 0; set => _raw[DirectionOffset] = (byte)(value ? 1 : 0); }
