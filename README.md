@@ -44,7 +44,6 @@ dotnet test
 - `src/Gmk87.Core`: HID I/O, protocols (VIA `0xFF60`, vendor settings `0xFF1C`, read-only firmware info `0xFFEF`), models, KLE layout parser, effect simulator, RGB565 imaging. No UI dependencies.
 - `src/Gmk87.App`: WinUI 3 pages and view models. `Services/KeyboardService` serializes all device access.
 - `tests/Gmk87.Core.Tests`: protocol and model tests against fake HID channels and data captured from a real keyboard.
-- `via/`: a VIA V3 definition for firmware V0112.
 
 ## Things to know
 
@@ -63,4 +62,4 @@ dotnet test
 
 ## License
 
-TBD.
+[MIT](LICENSE).
