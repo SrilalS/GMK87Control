@@ -1,0 +1,13 @@
+# Normalise text line endings; leave binaries alone.
+* text=auto
+
+*.bin binary
+*.exe binary
+*.dll binary
+*.otf binary
+*.ttf binary
+*.png binary
+*.bmp binary
+*.ico binary
+*.docx binary
+*.zip binary

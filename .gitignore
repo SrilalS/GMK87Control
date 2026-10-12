@@ -1,0 +1,15 @@
+# Build output
+bin/
+obj/
+TestResults/
+*.user
+*.suo
+
+# IDEs
+.vs/
+.idea/
+.vscode/
+
+# Packaging output
+AppPackages/
+publish/

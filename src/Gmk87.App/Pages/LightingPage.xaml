@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="Gmk87.App.Pages.LightingPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:model="using:Gmk87.Core.Model"
+    xmlns:vm="using:Gmk87.App.ViewModels"
+    xmlns:controls="using:Gmk87.App.Controls">
+
+    <ScrollViewer>
+        <StackPanel Padding="32,24" Spacing="16" MaxWidth="1100" HorizontalAlignment="Left">
+            <Grid>
+                <TextBlock Text="Lighting" Style="{StaticResource TitleTextBlockStyle}" />
+                <ProgressRing IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}" Width="20" Height="20" HorizontalAlignment="Right" />
+            </Grid>
+
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel Spacing="10">
+                    <Grid>
+                        <TextBlock Text="Preview (simulated)" Style="{StaticResource SectionHeader}" />
+                        <ToggleSwitch x:Name="DemoToggle" OnContent="Random key presses" OffContent="Random key presses" IsOn="True"
+                                      Toggled="OnDemoToggled" HorizontalAlignment="Right" />
+                    </Grid>
+                    <controls:LightingPreview x:Name="Preview" />
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel Spacing="14">
+                    <Grid>
+                        <TextBlock Text="Backlight" Style="{StaticResource SectionHeader}" />
+                        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                            <Button Content="Read" Command="{x:Bind ViewModel.ReadBacklightCommand}" />
+                            <Button Content="Write to keyboard" Style="{StaticResource AccentButtonStyle}"
+                                    Command="{x:Bind ViewModel.WriteBacklightCommand}" IsEnabled="{x:Bind ViewModel.CanWriteBacklight, Mode=OneWay}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid ColumnSpacing="40">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Spacing="14">
+                            <ComboBox Header="Effect" MinWidth="260" ItemsSource="{x:Bind ViewModel.Effects}"
+                                      SelectedItem="{x:Bind ViewModel.SelectedEffect, Mode=TwoWay}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="model:LightingEffect">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <TextBlock Text="{x:Bind Id}" Width="22" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                            <TextBlock Text="{x:Bind Name}" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                            <Slider Header="Brightness" Minimum="0" Maximum="{x:Bind ViewModel.MaxBrightness, Mode=OneWay}" StepFrequency="1" TickFrequency="1"
+                                    TickPlacement="Outside" Value="{x:Bind ViewModel.Brightness, Mode=TwoWay}" Width="320" HorizontalAlignment="Left" />
+                            <Slider Header="Speed" Minimum="0" Maximum="4" StepFrequency="1" TickFrequency="1" TickPlacement="Outside"
+                                    Value="{x:Bind ViewModel.Speed, Mode=TwoWay}" Width="320" HorizontalAlignment="Left" />
+                            <ToggleSwitch Header="Reverse direction" IsOn="{x:Bind ViewModel.Reverse, Mode=TwoWay}" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" Spacing="12">
+                            <ToggleSwitch Header="Rainbow" IsOn="{x:Bind ViewModel.Rainbow, Mode=TwoWay}" />
+                            <TextBlock Text="Colour" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                            <GridView x:Name="SwatchGrid" ItemsSource="{x:Bind ViewModel.Swatches}" SelectionMode="None" IsItemClickEnabled="True"
+                                      ItemClick="OnSwatchClick" IsEnabled="{x:Bind ViewModel.IsColorEditable, Mode=OneWay}" MaxWidth="420" HorizontalAlignment="Left">
+                                <GridView.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:ColorSwatch">
+                                        <Border Width="40" Height="40" CornerRadius="20" Background="{x:Bind Brush}"
+                                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                                                ToolTipService.ToolTip="{x:Bind Name}" />
+                                    </DataTemplate>
+                                </GridView.ItemTemplate>
+                            </GridView>
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <Border Width="40" Height="40" CornerRadius="8" Background="{x:Bind ViewModel.ColorBrush, Mode=OneWay}"
+                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" />
+                                <TextBlock Text="{x:Bind ViewModel.ColorHex, Mode=OneWay}" VerticalAlignment="Center" FontFamily="Consolas" />
+                                <Button Content="Custom..." VerticalAlignment="Center" IsEnabled="{x:Bind ViewModel.IsColorEditable, Mode=OneWay}">
+                                    <Button.Flyout>
+                                        <Flyout Placement="Bottom">
+                                            <ColorPicker Color="{x:Bind ViewModel.Color, Mode=TwoWay}" ColorSpectrumShape="Ring"
+                                                         IsAlphaEnabled="False" IsMoreButtonVisible="False" IsColorSliderVisible="False"
+                                                         IsColorChannelTextInputVisible="False" IsHexInputVisible="True" Width="260" />
+                                        </Flyout>
+                                    </Button.Flyout>
+                                </Button>
+                            </StackPanel>
+                            <TextBlock Text="{x:Bind ViewModel.ColorHint, Mode=OneWay}" TextWrapping="Wrap" MaxWidth="420" HorizontalAlignment="Left"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource CardStyle}">
+                <StackPanel Spacing="14">
+                    <Grid>
+                        <TextBlock Text="Logo light bar, Win lock, clock" Style="{StaticResource SectionHeader}" />
+                        <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                            <Button Content="Read" Command="{x:Bind ViewModel.ReadVendorCommand}" />
+                            <Button Content="Write to keyboard" Style="{StaticResource AccentButtonStyle}"
+                                    Command="{x:Bind ViewModel.WriteVendorCommand}" IsEnabled="{x:Bind ViewModel.IsVendorLoaded, Mode=OneWay}" />
+                        </StackPanel>
+                    </Grid>
+                    <ComboBox Header="Logo mode (names unverified)" MinWidth="260" ItemsSource="{x:Bind ViewModel.LogoModes}"
+                              SelectedIndex="{x:Bind ViewModel.LogoMode, Mode=TwoWay}" />
+                    <ComboBox Header="Logo colour" MinWidth="260" ItemsSource="{x:Bind ViewModel.LogoColors}"
+                              SelectedIndex="{x:Bind ViewModel.LogoColor, Mode=TwoWay}" />
+                    <Slider Header="Logo brightness (0 = off)" Minimum="0" Maximum="9" StepFrequency="1" TickFrequency="1" TickPlacement="Outside"
+                            Value="{x:Bind ViewModel.LogoBrightness, Mode=TwoWay}" Width="320" HorizontalAlignment="Left" />
+                    <ToggleSwitch Header="Logo rainbow" IsOn="{x:Bind ViewModel.LogoRainbow, Mode=TwoWay}" />
+                    <ToggleSwitch Header="Lock Windows key" IsOn="{x:Bind ViewModel.WinLock, Mode=TwoWay}" />
+                    <CheckBox Content="Also set the keyboard clock to this PC's time" IsChecked="{x:Bind ViewModel.SyncClock, Mode=TwoWay}" />
+                    <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}">
+                        <Run Text="Keyboard clock at last read:" />
+                        <Run Text="{x:Bind ViewModel.KeyboardClock, Mode=OneWay}" />
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

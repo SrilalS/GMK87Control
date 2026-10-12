@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Gmk87.App/Gmk87.App.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="src/Gmk87.Core/Gmk87.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Gmk87.Core.Tests/Gmk87.Core.Tests.csproj" />
+  </Folder>
+</Solution>
